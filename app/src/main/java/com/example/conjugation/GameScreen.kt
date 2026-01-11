@@ -45,13 +45,14 @@ val jouerConjugations = listOf(
 )
 
 @Composable
-fun GameScreen() {
+fun GameScreen(statsRepository: StatsRepository, onGameWon: () -> Unit) {
     var questions by remember { mutableStateOf(jouerConjugations.shuffled()) }
     var currentQuestionIndex by remember { mutableStateOf(0) }
     var selectedAnswer by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var correctAnswersInARow by remember { mutableStateOf(0) }
-    var gameWon by remember { mutableStateOf(false) }
+    var totalAttempts by remember { mutableStateOf(0) }
+    val startTime by remember { mutableStateOf(System.currentTimeMillis()) }
     val context = LocalContext.current
 
     val currentQuestion = questions[currentQuestionIndex]
@@ -78,15 +79,10 @@ fun GameScreen() {
         }
     }
 
-    if (gameWon) {
-        GameWonScreen {
-            correctAnswersInARow = 0
-            questions = jouerConjugations.shuffled()
-            currentQuestionIndex = 0
-            selectedAnswer = null
-            feedback = null
-            gameWon = false
-        }
+    if (correctAnswersInARow == 6) {
+        val duration = ((System.currentTimeMillis() - startTime) / 1000).toInt()
+        statsRepository.saveResult(QuizResult(totalAttempts, duration))
+        GameWonScreen(onPlayAgain = onGameWon)
     } else {
         Column(
             modifier = Modifier
@@ -126,14 +122,12 @@ fun GameScreen() {
             if (!isFeedbackVisible) {
                 Button(
                     onClick = {
+                        totalAttempts++
                         if (selectedAnswer == currentQuestion.answer) {
                             feedback = "Correct!"
                             correctAnswersInARow++
                             if (correctAnswersInARow >= 4) {
                                 vibrate(context)
-                            }
-                            if (correctAnswersInARow == 6) {
-                                gameWon = true
                             }
                         } else {
                             feedback = "Wrong!"
