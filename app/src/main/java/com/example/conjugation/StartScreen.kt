@@ -8,6 +8,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +41,7 @@ import java.util.Calendar
 @Composable
 fun StartScreen(onStartClick: () -> Unit, statsRepository: StatsRepository) {
     val results = statsRepository.getAllResults()
+    val streak = statsRepository.getStreak()
     val context = LocalContext.current
     var showPermissionDialog by remember { mutableStateOf(false) }
 
@@ -68,8 +70,10 @@ fun StartScreen(onStartClick: () -> Unit, statsRepository: StatsRepository) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("French Conjugation Challenge", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        Spacer(modifier = Modifier.height(32.dp))
+        Text("Conjugation Crush", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("🔥 Daily Streak: $streak", fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(modifier = Modifier.height(16.dp))
 
         if (results.isNotEmpty()) {
             AndroidView(
@@ -118,17 +122,13 @@ fun StartScreen(onStartClick: () -> Unit, statsRepository: StatsRepository) {
 }
 
 fun showTimePicker(context: Context) {
-    val calendar = Calendar.getInstance()
-    val hour = calendar.get(Calendar.HOUR_OF_DAY)
-    val minute = calendar.get(Calendar.MINUTE)
-
     TimePickerDialog(
         context,
         { _, selectedHour, selectedMinute ->
             NotificationScheduler.scheduleDailyNotification(context, selectedHour, selectedMinute)
         },
-        hour,
-        minute,
+        16, // 4 PM
+        0,
         false
     ).show()
 }
