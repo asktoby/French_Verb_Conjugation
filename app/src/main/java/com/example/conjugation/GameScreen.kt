@@ -1,5 +1,9 @@
 package com.example.conjugation
 
+import android.content.Context
+import android.os.Build
+import android.os.VibrationEffect
+import android.os.Vibrator
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -15,6 +19,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,9 +27,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 
 data class ConjugationQuestion(val pronoun: String, val answer: String)
 
@@ -45,14 +52,31 @@ fun GameScreen() {
     var feedback by remember { mutableStateOf<String?>(null) }
     var correctAnswersInARow by remember { mutableStateOf(0) }
     var gameWon by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     val currentQuestion = questions[currentQuestionIndex]
-    val options = remember(currentQuestionIndex) {
+    val options = remember(currentQuestionIndex, questions) {
         val incorrectAnswers = jouerConjugations.map { it.answer }.filter { it != currentQuestion.answer }.distinct()
         (incorrectAnswers.shuffled().take(3) + currentQuestion.answer).shuffled()
     }
-    
+
     val progress by animateFloatAsState(targetValue = correctAnswersInARow / 6f, label = "progress")
+
+    LaunchedEffect(feedback) {
+        if (feedback == "Correct!") {
+            delay(1000L) // Wait for 1 second
+            if (correctAnswersInARow < 6) {
+                if (currentQuestionIndex < questions.size - 1) {
+                    currentQuestionIndex++
+                } else {
+                    questions = jouerConjugations.shuffled()
+                    currentQuestionIndex = 0
+                }
+                selectedAnswer = null
+                feedback = null
+            }
+        }
+    }
 
     if (gameWon) {
         GameWonScreen {
@@ -72,7 +96,7 @@ fun GameScreen() {
         ) {
             Text(text = "Conjugate the verb: Jouer", fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(8.dp)
@@ -98,13 +122,16 @@ fun GameScreen() {
             Spacer(modifier = Modifier.height(16.dp))
 
             val isFeedbackVisible = feedback != null
-            
+
             if (!isFeedbackVisible) {
                 Button(
                     onClick = {
                         if (selectedAnswer == currentQuestion.answer) {
                             feedback = "Correct!"
                             correctAnswersInARow++
+                            if (correctAnswersInARow >= 4) {
+                                vibrate(context)
+                            }
                             if (correctAnswersInARow == 6) {
                                 gameWon = true
                             }
@@ -123,30 +150,30 @@ fun GameScreen() {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = feedback ?: "",
-                        color = if (feedback?.startsWith("Correct") == true) Color(0xFF00C853) else Color.Red,
+                        color = if (feedback == "Correct!") Color(0xFF00C853) else Color.Red,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.SemiBold
                     )
-                    if (feedback?.startsWith("Wrong") == true) {
+                    if (feedback == "Wrong!") {
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             text = "${currentQuestion.pronoun} ${currentQuestion.answer}",
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Bold,
                         )
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = {
-                        if (currentQuestionIndex < questions.size - 1) {
-                            currentQuestionIndex++
-                        } else {
-                            questions = jouerConjugations.shuffled()
-                            currentQuestionIndex = 0
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(onClick = {
+                            if (currentQuestionIndex < questions.size - 1) {
+                                currentQuestionIndex++
+                            } else {
+                                questions = jouerConjugations.shuffled()
+                                currentQuestionIndex = 0
+                            }
+                            selectedAnswer = null
+                            feedback = null
+                        }) {
+                            Text(text = "Next")
                         }
-                        selectedAnswer = null
-                        feedback = null
-                    }) {
-                        Text(text = "Next")
                     }
                 }
             }
@@ -167,5 +194,15 @@ fun GameWonScreen(onPlayAgain: () -> Unit) {
         Button(onClick = onPlayAgain) {
             Text("Play Again")
         }
+    }
+}
+
+fun vibrate(context: Context) {
+    val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        vibrator.vibrate(VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE))
+    } else {
+        @Suppress("DEPRECATION")
+        vibrator.vibrate(200)
     }
 }
